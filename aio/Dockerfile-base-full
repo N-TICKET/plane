@@ -5,6 +5,39 @@ FROM python:3.12-slim
 # Set environment variables to non-interactive for apt
 ENV DEBIAN_FRONTEND=noninteractive
 ENV BUILD_TYPE=full
+ENV APP_DOMAIN=plane.eneticket.com:8081
+
+ENV WEB_URL=http://${APP_DOMAIN}
+ENV DEBUG=0
+ENV SENTRY_DSN=
+ENV SENTRY_ENVIRONMENT=production
+ENV CORS_ALLOWED_ORIGINS=http://${APP_DOMAIN},https://${APP_DOMAIN}
+# Secret Key
+ENV SECRET_KEY=60gp0byfz2dvffa45cxl20p1scy9xbpf6d8c5y0geejgkyp1b5
+# Gunicorn Workers
+ENV GUNICORN_WORKERS=1
+
+ENV POSTGRES_USER="plane"
+ENV POSTGRES_PASSWORD="plane"
+ENV POSTGRES_DB="plane"
+ENV POSTGRES_HOST="srv-captain--plane"
+ENV POSTGRES_PORT="5432"
+ENV DATABASE_URL="postgresql://plane:plane@srv-captain--plane:5432/plane"
+
+ENV REDIS_HOST="srv-captain--plane"
+ENV REDIS_PORT="6379"
+ENV REDIS_URL="redis://srv-captain--plane:6379"
+
+ENV USE_MINIO="1"
+ENV AWS_REGION=""
+ENV AWS_ACCESS_KEY_ID="access-key"
+ENV AWS_SECRET_ACCESS_KEY="secret-key"
+ENV AWS_S3_ENDPOINT_URL="http://srv-captain--plane:9000"
+ENV AWS_S3_BUCKET_NAME="uploads"
+ENV MINIO_ROOT_USER="access-key"
+ENV MINIO_ROOT_PASSWORD="secret-key"
+ENV BUCKET_NAME="uploads"
+ENV FILE_SIZE_LIMIT="5242880"
 
 SHELL [ "/bin/bash", "-c" ]
 
@@ -24,34 +57,6 @@ RUN apt-get update && \
     tk-dev libffi-dev liblzma-dev supervisor nginx nano vim ncdu \
     sudo lsof net-tools libpq-dev procps gettext
 
-# Install Redis 7.2
-RUN echo "deb http://deb.debian.org/debian $(lsb_release -cs)-backports main" > /etc/apt/sources.list.d/backports.list && \
-    curl -fsSL https://packages.redis.io/gpg | gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" > /etc/apt/sources.list.d/redis.list && \
-    apt-get update && \
-    apt-get install -y redis-server
-
-# Install PostgreSQL 15
-ENV POSTGRES_VERSION=15
-RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/pgdg-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/pgdg-archive-keyring.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
-    apt-get update && \
-    apt-get install -y postgresql-$POSTGRES_VERSION postgresql-client-$POSTGRES_VERSION && \
-    mkdir -p /var/lib/postgresql/data && \
-    chown -R postgres:postgres /var/lib/postgresql
-COPY postgresql.conf /etc/postgresql/postgresql.conf
-RUN sudo -u postgres /usr/lib/postgresql/$POSTGRES_VERSION/bin/initdb -D /var/lib/postgresql/data
-
-# Install MinIO
-ARG TARGETARCH
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
-        curl -fSl https://dl.min.io/server/minio/release/linux-amd64/minio -o /usr/local/bin/minio; \
-    elif [ "$TARGETARCH" = "arm64" ]; then \
-        curl -fSl https://dl.min.io/server/minio/release/linux-arm64/minio -o /usr/local/bin/minio; \
-    else \
-        echo "Unsupported architecture: $TARGETARCH"; exit 1; \
-    fi && \
-    chmod +x /usr/local/bin/minio
 
 # Install Node.js 18
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
@@ -67,7 +72,7 @@ COPY env.sh /app/nginx-start.sh
 RUN chmod +x /app/nginx-start.sh
 
 # Expose ports for Redis, PostgreSQL, and MinIO
-EXPOSE 6379 5432 9000 80 443
+EXPOSE 8081 443
 
 # Start Supervisor
 CMD ["/usr/bin/supervisord", "-c", "/app/supervisord.conf"]
